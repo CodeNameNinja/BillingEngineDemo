@@ -9,7 +9,7 @@ import type {
 import { addDaysIsoUtc, nowIsoUtc } from '../lib/time.js';
 
 const OZOW_PAY_LINK =
-  'https://pay.ozow.com/8a27a62f-2967-4888-88df-8d66a1c67bdd/payment-option/';
+  'https://pay.ozow.com/bdad1c0b-0024-43b5-8e96-1cc829be6f23/payment-option/';
 
 const DEMO_WHATSAPP_DESTINATION_E164 = '+27656225667';
 
