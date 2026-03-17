@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid';
 import { addDaysIsoUtc, nowIsoUtc } from '../lib/time.js';
-const OZOW_PAY_LINK = 'https://pay.ozow.com/8a27a62f-2967-4888-88df-8d66a1c67bdd/payment-option/';
+const OZOW_PAY_LINK = 'https://pay.ozow.com/d7643574-5884-44aa-a039-0153958fe72b/payment-option/';
 export function generateInvoice(args) {
     const issuedAt = nowIsoUtc();
     const dueAt = computeDueAt(issuedAt, args.model.invoice.dueDateRule);
