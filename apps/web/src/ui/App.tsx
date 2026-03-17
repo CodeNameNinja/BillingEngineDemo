@@ -1,6 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import {
   Alert,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Box,
   Button,
   Chip,
@@ -9,6 +12,12 @@ import {
   Link,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Tooltip,
   Typography
 } from '@mui/material';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
@@ -16,6 +25,17 @@ import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
+import type {
+  ArtifactIndex,
+  BillingWarning,
+  ExtractedBillingTerms,
+  Invoice,
+  PaymentLink,
+  ReminderSchedule,
+  RevRecSchedule
+} from '@demo/shared';
+import { ExtractedBillingTermsSchema } from '@demo/shared';
 
 type UploadResult = {
   runId: string;
@@ -25,18 +45,19 @@ type UploadResult = {
 
 type ExtractTermsResult = {
   runId: string;
-  extractedTerms: unknown;
-  warnings: unknown[];
+  extractedTerms: ExtractedBillingTerms;
+  warnings: BillingWarning[];
 };
 
 type InvoiceGenerateResult = {
   runId: string;
-  invoice: unknown;
+  invoice: Invoice;
   invoiceHtml: string;
-  paymentLink: unknown;
+  paymentLink: PaymentLink;
   whatsappPayload: unknown;
-  reminders: unknown;
-  revrec: unknown;
+  reminders: ReminderSchedule;
+  revrec: RevRecSchedule;
+  artifactIndex: ArtifactIndex;
 };
 
 export function App() {
@@ -177,7 +198,13 @@ export function App() {
                     });
                     const j = await r.json();
                     if (!r.ok || !j.ok) throw new Error(j.error ?? 'Extraction failed');
-                    setTerms({ runId: j.runId, extractedTerms: j.extractedTerms, warnings: j.warnings ?? [] });
+                    const parsed = ExtractedBillingTermsSchema.safeParse(j.extractedTerms);
+                    if (!parsed.success) throw new Error('Extraction returned invalid schema');
+                    setTerms({
+                      runId: j.runId,
+                      extractedTerms: parsed.data,
+                      warnings: (j.warnings ?? []) as BillingWarning[]
+                    });
                     setInvoice(null);
                     setWhatsAppStatus(null);
                   } catch (e) {
@@ -194,14 +221,8 @@ export function App() {
             {terms ? (
               <Stack spacing={1.25}>
                 <KeyValue label="runId" value={terms.runId} />
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <CodeBlock label="extractedTerms (JSON)">{JSON.stringify(terms.extractedTerms, null, 2)}</CodeBlock>
-                  </Box>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <CodeBlock label="warnings">{JSON.stringify(terms.warnings, null, 2)}</CodeBlock>
-                  </Box>
-                </Stack>
+                <TermsPanel terms={terms.extractedTerms} warnings={terms.warnings} />
+                <JsonAccordion label="extractedTerms (raw JSON)">{JSON.stringify(terms.extractedTerms, null, 2)}</JsonAccordion>
               </Stack>
             ) : (
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -244,7 +265,8 @@ export function App() {
                       paymentLink: j.paymentLink,
                       whatsappPayload: j.whatsappPayload,
                       reminders: j.reminders,
-                      revrec: j.revrec
+                      revrec: j.revrec,
+                      artifactIndex: j.artifactIndex
                     });
                     setWhatsAppStatus(null);
                   } catch (e) {
@@ -261,7 +283,19 @@ export function App() {
             {invoice ? (
               <Stack spacing={1.25}>
                 <KeyValue label="runId" value={invoice.runId} />
+                <InvoicePanel invoice={invoice.invoice} paymentLink={invoice.paymentLink} />
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                  <Button
+                    component="a"
+                    variant="outlined"
+                    disabled={
+                      busy ||
+                      !invoice.artifactIndex.files.some((f) => f.key === 'invoice.pdf')
+                    }
+                    href={`/api/artifacts/${encodeURIComponent(invoice.runId)}/file?key=invoice.pdf`}
+                  >
+                    Download invoice PDF
+                  </Button>
                   <Button
                     variant="outlined"
                     disabled={busy || !invoice?.whatsappPayload}
@@ -291,18 +325,15 @@ export function App() {
                   </Button>
                   {whatsAppStatus ? <Chip size="small" color="success" label={whatsAppStatus} /> : null}
                 </Stack>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems="stretch">
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <CodeBlock label="invoice (JSON)">{JSON.stringify(invoice.invoice, null, 2)}</CodeBlock>
+                    <RevRecPanel revrec={invoice.revrec} currency={invoice.invoice.currency} />
                   </Box>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Stack spacing={1.25}>
-                      <CodeBlock label="collections (WhatsApp payload)">
-                        {JSON.stringify(invoice.whatsappPayload, null, 2)}
-                      </CodeBlock>
-                      <CodeBlock label="reminders">{JSON.stringify(invoice.reminders, null, 2)}</CodeBlock>
-                      <CodeBlock label="rev rec">{JSON.stringify(invoice.revrec, null, 2)}</CodeBlock>
-                    </Stack>
+                    <RemindersPanel schedule={invoice.reminders} />
+                    <Box sx={{ mt: 2 }}>
+                      <ArtifactsPanel runId={invoice.runId} artifactIndex={invoice.artifactIndex} />
+                    </Box>
                   </Box>
                 </Stack>
 
@@ -323,6 +354,17 @@ export function App() {
                     }}
                     srcDoc={invoice.invoiceHtml}
                   />
+                </Stack>
+
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <JsonAccordion label="invoice (raw JSON)">{JSON.stringify(invoice.invoice, null, 2)}</JsonAccordion>
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <JsonAccordion label="collections (WhatsApp payload)">
+                      {JSON.stringify(invoice.whatsappPayload, null, 2)}
+                    </JsonAccordion>
+                  </Box>
                 </Stack>
               </Stack>
             ) : (
@@ -432,6 +474,423 @@ function CodeBlock(props: { label: string; children: string }) {
   );
 }
 
+function JsonAccordion(props: { label: string; children: string }) {
+  return (
+    <Accordion
+      disableGutters
+      elevation={0}
+      sx={{
+        borderRadius: 2,
+        '&:before': { display: 'none' }
+      }}
+    >
+      <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
+        <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.1 }}>
+          {props.label}
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails>
+        <Box sx={{ mt: -1 }}>
+          <CodeBlock label="">{props.children}</CodeBlock>
+        </Box>
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+function Money(props: { amountMinor: number; currency: string }) {
+  return <>{formatMinor(props.amountMinor, props.currency)}</>;
+}
+
+function InvoicePanel(props: { invoice: Invoice; paymentLink: PaymentLink }) {
+  const inv = props.invoice;
+  return (
+    <Paper sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3 }}>
+      <Stack spacing={1.25}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+          <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+            <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.1 }}>
+              Invoice
+            </Typography>
+            <Typography variant="h6" sx={{ lineHeight: 1.15 }}>
+              {inv.invoiceNumber}
+            </Typography>
+          </Stack>
+          <Box sx={{ flex: 1 }} />
+          <Button component="a" href={props.paymentLink.url} target="_blank" rel="noreferrer" variant="contained">
+            Pay via Ozow <OpenInNewRoundedIcon fontSize="inherit" />
+          </Button>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+          <Kpi label="Customer" value={inv.customerName} />
+          <Kpi label="Issued" value={inv.issuedAt.slice(0, 10)} />
+          <Kpi label="Due" value={inv.dueAt.slice(0, 10)} />
+          <Kpi
+            label="Total"
+            value={
+              <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.2 }}>
+                <Money amountMinor={inv.totalMinor} currency={inv.currency} />
+              </Typography>
+            }
+          />
+        </Stack>
+
+        <LineItemsTable currency={inv.currency} lineItems={inv.lineItems} />
+      </Stack>
+    </Paper>
+  );
+}
+
+function LineItemsTable(props: { lineItems: Invoice['lineItems']; currency: Invoice['currency'] }) {
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      <Table size="small" sx={{ '& th': { fontWeight: 750 } }}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Description</TableCell>
+            <TableCell align="right">Qty</TableCell>
+            <TableCell align="right">Unit</TableCell>
+            <TableCell align="right">Unit price</TableCell>
+            <TableCell align="right">Amount</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {props.lineItems.map((li) => (
+            <TableRow key={li.id} hover>
+              <TableCell sx={{ minWidth: 220 }}>
+                <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                  {li.description}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'text.secondary', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}
+                >
+                  {li.id}
+                </Typography>
+              </TableCell>
+              <TableCell align="right">{li.quantity}</TableCell>
+              <TableCell align="right">{li.unit}</TableCell>
+              <TableCell align="right">
+                <Money amountMinor={li.unitPriceMinor} currency={props.currency} />
+              </TableCell>
+              <TableCell align="right" sx={{ fontWeight: 750 }}>
+                <Money amountMinor={li.amountMinor} currency={props.currency} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Paper>
+  );
+}
+
+function TermsPanel(props: { terms: ExtractedBillingTerms; warnings: BillingWarning[] }) {
+  const t = props.terms;
+  const status = props.warnings?.length ? 'Needs review' : 'Looks good';
+  const statusColor = props.warnings?.length ? 'warning' : 'success';
+
+  return (
+    <Paper sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3 }}>
+      <Stack spacing={1.25}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+          <Typography variant="h6">Extracted billing terms</Typography>
+          <Box sx={{ flex: 1 }} />
+          <Chip size="small" color={statusColor} label={status} />
+        </Stack>
+
+        {props.warnings?.length ? (
+          <Alert severity="warning">
+            <Stack spacing={0.25}>
+              <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                Warnings
+              </Typography>
+              {props.warnings.map((w, idx) => (
+                <Typography key={`${w.code}-${idx}`} variant="body2">
+                  <Box component="span" sx={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
+                    {w.code}
+                  </Box>
+                  {w.path ? ` (${w.path})` : ''}: {w.message}
+                </Typography>
+              ))}
+            </Stack>
+          </Alert>
+        ) : null}
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <SectionSubhead>Contract & parties</SectionSubhead>
+            <KeyValueGrid
+              items={[
+                { label: 'Customer', value: t.customerName ?? '—' },
+                { label: 'Currency', value: t.currency ?? '—' },
+                { label: 'Start', value: t.contractStartDate ?? '—' },
+                { label: 'End', value: t.contractEndDate ?? '—' }
+              ]}
+            />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <SectionSubhead>Billing</SectionSubhead>
+            <KeyValueGrid
+              items={[
+                { label: 'Model', value: t.billingModel ?? '—' },
+                { label: 'Frequency', value: t.invoiceFrequency ?? '—' },
+                { label: 'Term (months)', value: t.termLengthMonths != null ? String(t.termLengthMonths) : '—' },
+                { label: 'Due rule', value: t.dueDateRule ?? '—' }
+              ]}
+            />
+          </Box>
+        </Stack>
+
+        {t.lineItems?.length ? (
+          <Box>
+            <SectionSubhead>Line items</SectionSubhead>
+            <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Description</TableCell>
+                    <TableCell align="right">Qty</TableCell>
+                    <TableCell align="right">Unit</TableCell>
+                    <TableCell align="right">Unit price</TableCell>
+                    <TableCell align="right">Fee</TableCell>
+                    <TableCell align="right">Cadence</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {t.lineItems.map((li, idx) => (
+                    <TableRow key={`${li.description}-${idx}`} hover>
+                      <TableCell>{li.description}</TableCell>
+                      <TableCell align="right">{li.quantity ?? '—'}</TableCell>
+                      <TableCell align="right">{li.unit ?? '—'}</TableCell>
+                      <TableCell align="right">
+                        {li.unitPriceMinor != null && t.currency ? (
+                          <Money amountMinor={li.unitPriceMinor} currency={t.currency} />
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        {li.fixedFeeMinor != null && t.currency ? (
+                          <Money amountMinor={li.fixedFeeMinor} currency={t.currency} />
+                        ) : li.recurringFeeMinor != null && t.currency ? (
+                          <Money amountMinor={li.recurringFeeMinor} currency={t.currency} />
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell align="right">{li.cadence ?? '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Paper>
+          </Box>
+        ) : null}
+
+        {t.variableUsageRules?.length ? (
+          <Box>
+            <SectionSubhead>Usage rules</SectionSubhead>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {t.variableUsageRules.map((r, idx) => (
+                <Tooltip
+                  key={`${r.meter}-${r.unit}-${idx}`}
+                  title={
+                    t.currency ? (
+                      <>
+                        {r.meter} · {r.unit} · <Money amountMinor={r.pricePerUnitMinor} currency={t.currency} /> / unit
+                      </>
+                    ) : (
+                      `${r.meter} · ${r.unit} · ${r.pricePerUnitMinor} minor / unit`
+                    )
+                  }
+                >
+                  <Chip size="small" label={`${r.meter} (${r.unit})`} color="info" variant="outlined" sx={{ fontWeight: 650 }} />
+                </Tooltip>
+              ))}
+            </Stack>
+          </Box>
+        ) : null}
+
+        {t.contactChannel?.whatsappPhoneE164 || t.contactChannel?.email ? (
+          <Box>
+            <SectionSubhead>Collections contact</SectionSubhead>
+            <KeyValueGrid
+              items={[
+                { label: 'WhatsApp', value: t.contactChannel?.whatsappPhoneE164 ?? '—' },
+                { label: 'Email', value: t.contactChannel?.email ?? '—' }
+              ]}
+            />
+          </Box>
+        ) : null}
+      </Stack>
+    </Paper>
+  );
+}
+
+function RemindersPanel(props: { schedule: ReminderSchedule }) {
+  return (
+    <Paper sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3 }}>
+      <Stack spacing={1}>
+        <Typography variant="h6">Reminders</Typography>
+        <Stack spacing={0.75}>
+          {props.schedule.reminders.map((r, idx) => (
+            <Stack
+              key={`${r.kind}-${idx}`}
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ p: 1, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.60)', border: '1px solid', borderColor: 'divider' }}
+            >
+              <Typography variant="body2" sx={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
+                {r.kind}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                {r.at.slice(0, 10)}
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function RevRecPanel(props: { revrec: RevRecSchedule; currency: string }) {
+  return (
+    <Paper sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3 }}>
+      <Stack spacing={1.25}>
+        <Typography variant="h6">Revenue recognition</Typography>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Month</TableCell>
+                <TableCell align="right">Recognized</TableCell>
+                <TableCell align="right">Deferred</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {props.revrec.months.map((m) => (
+                <TableRow key={m.month} hover>
+                  <TableCell sx={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>{m.month}</TableCell>
+                  <TableCell align="right">
+                    <Money amountMinor={m.recognizedMinor} currency={props.currency} />
+                  </TableCell>
+                  <TableCell align="right" sx={{ color: 'text.secondary' }}>
+                    <Money amountMinor={m.deferredMinor} currency={props.currency} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Stack>
+    </Paper>
+  );
+}
+
+function ArtifactsPanel(props: { runId: string; artifactIndex: ArtifactIndex }) {
+  return (
+    <Paper sx={{ p: { xs: 1.5, sm: 2 }, borderRadius: 3 }}>
+      <Stack spacing={1}>
+        <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+          <Typography variant="h6">Evidence</Typography>
+          <Button
+            component="a"
+            href={`/api/artifacts/${encodeURIComponent(props.runId)}`}
+            target="_blank"
+            rel="noreferrer"
+            variant="outlined"
+            endIcon={<OpenInNewRoundedIcon />}
+          >
+            Open index.json
+          </Button>
+        </Stack>
+        <Stack spacing={0.75}>
+          {props.artifactIndex.files.map((f) => (
+            <Stack
+              key={f.path}
+              direction="row"
+              spacing={1}
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ p: 1, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.60)', border: '1px solid', borderColor: 'divider' }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                  {f.key}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                    overflowWrap: 'anywhere'
+                  }}
+                >
+                  {f.path}
+                </Typography>
+              </Box>
+              <Chip size="small" label={f.contentType} variant="outlined" />
+            </Stack>
+          ))}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function Kpi(props: { label: string; value: ReactNode }) {
+  return (
+    <Stack spacing={0.35} sx={{ minWidth: 0, flex: 1 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.1 }}>
+        {props.label}
+      </Typography>
+      <Typography variant="body2" sx={{ fontWeight: 650, overflowWrap: 'anywhere' }}>
+        {props.value}
+      </Typography>
+    </Stack>
+  );
+}
+
+function SectionSubhead(props: { children: ReactNode }) {
+  return (
+    <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.1, display: 'block', mb: 0.75 }}>
+      {props.children}
+    </Typography>
+  );
+}
+
+function KeyValueGrid(props: { items: Array<{ label: string; value: string }> }) {
+  return (
+    <Stack
+      spacing={1}
+      sx={{ p: 1.25, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.60)', border: '1px solid', borderColor: 'divider' }}
+    >
+      {props.items.map((it) => (
+        <Stack key={it.label} direction="row" spacing={1} justifyContent="space-between" alignItems="baseline">
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            {it.label}
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 650,
+              textAlign: 'right',
+              overflowWrap: 'anywhere',
+              maxWidth: '70%'
+            }}
+          >
+            {it.value}
+          </Typography>
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
+
 function SectionCard(props: {
   title: string;
   status?: ReactNode;
@@ -462,5 +921,13 @@ function SectionCard(props: {
       </Stack>
     </Paper>
   );
+}
+
+function formatMinor(amountMinor: number, currency: string) {
+  const sign = amountMinor < 0 ? '-' : '';
+  const v = Math.abs(amountMinor);
+  const major = Math.floor(v / 100);
+  const minor = String(v % 100).padStart(2, '0');
+  return `${sign}${currency} ${major}.${minor}`;
 }
 

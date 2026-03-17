@@ -1,7 +1,6 @@
 import { nanoid } from 'nanoid';
 import { addDaysIsoUtc, nowIsoUtc } from '../lib/time.js';
-const OZOW_PAY_LINK = 'https://pay.ozow.com/bdad1c0b-0024-43b5-8e96-1cc829be6f23/payment-option/';
-const DEMO_WHATSAPP_DESTINATION_E164 = '+27656225667';
+const OZOW_PAY_LINK = 'https://pay.ozow.com/8a27a62f-2967-4888-88df-8d66a1c67bdd/payment-option/';
 export function generateInvoice(args) {
     const issuedAt = nowIsoUtc();
     const dueAt = computeDueAt(issuedAt, args.model.invoice.dueDateRule);
@@ -61,38 +60,8 @@ export function generateInvoice(args) {
         provider: 'ozow',
         url: OZOW_PAY_LINK
     };
-    const whatsappPayload = {
-        destination: DEMO_WHATSAPP_DESTINATION_E164.replace(/^\+/, ''),
-        message: {
-            type: 'template',
-            template: {
-                name: 'ozow_demo_utility',
-                language: { policy: 'deterministic', code: 'en' },
-                components: [
-                    {
-                        type: 'header',
-                        parameters: [
-                            {
-                                type: 'document',
-                                document: { link: 'https://filebin.net/vtljjhrgi3nuak4v/demo_contract.pdf' }
-                            }
-                        ]
-                    },
-                    {
-                        type: 'body',
-                        parameters: [
-                            { type: 'text', text: firstName(invoice.customerName) },
-                            { type: 'text', text: invoice.invoiceNumber },
-                            { type: 'text', text: formatMinor(invoice.totalMinor, invoice.currency) },
-                            { type: 'text', text: invoice.dueAt.slice(0, 10) }
-                        ]
-                    }
-                ]
-            }
-        }
-    };
     const invoiceHtml = renderInvoiceHtml(invoice, paymentLink);
-    return { invoice, invoiceHtml, paymentLink, whatsappPayload };
+    return { invoice, invoiceHtml, paymentLink };
 }
 function computeDueAt(issuedAtIso, rule) {
     if (rule === 'net_0')
@@ -189,11 +158,4 @@ function escapeHtml(s) {
             return '&quot;';
         return '&#39;';
     });
-}
-function firstName(full) {
-    const trimmed = full.trim();
-    if (!trimmed)
-        return 'Customer';
-    const [first] = trimmed.split(/\s+/);
-    return first ?? 'Customer';
 }

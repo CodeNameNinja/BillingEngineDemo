@@ -27,7 +27,7 @@ Reference docs: [Channel360 Notifications API](https://docs.channel360.co.za/api
 
 Send a header component of type **`document`**:
 
-- **link**: `https://filebin.net/vtljjhrgi3nuak4v/demo_contract.pdf`
+- **link**: a URL to the uploaded invoice PDF (this demo uses `file.io` and uses the returned `link`)
 
 ### Body components (4 parameters)
 
