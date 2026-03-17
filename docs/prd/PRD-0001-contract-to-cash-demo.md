@@ -27,7 +27,7 @@ This demo shows how AI can accelerate interpretation, while deterministic softwa
 - Generate an invoice with:
   - deterministic totals
   - a payment link attached (Ozow for the demo)
-  - a WhatsApp message payload ready to send via UnifiedSend
+  - a WhatsApp message payload ready to send via US
 - Create a reminder schedule for the invoice (configurable cadence).
 - Produce a basic revenue recognition output (recognized vs deferred schedule) for the invoice.
 - Make artifacts inspectable and auditable: raw extraction text, extracted JSON, normalized model, invoice JSON, reminder schedule.
@@ -90,7 +90,7 @@ Out of scope for the demo (avoid live-demo chaos):
   - Attach Ozow payment link.
   - Provide a human-readable invoice preview (HTML is sufficient for demo; PDF optional).
 - **FR6 — Collections automation**
-  - Send invoice notification via UnifiedSend WhatsApp (real send or simulation).
+  - Send invoice notification via US WhatsApp (real send or simulation).
   - Include invoice summary, amount due, due date, payment link.
   - Schedule reminders at configurable cadences.
 - **FR7 — Revenue recognition (demo-simple)**
@@ -124,7 +124,7 @@ Out of scope for the demo (avoid live-demo chaos):
   - [ ] invoice JSON (line items, subtotal, total, due date)
   - [ ] invoice preview (HTML or URL)
   - [ ] Ozow payment link attached
-- [ ] Sending invoice produces a WhatsApp message payload and UnifiedSend send status (real or simulated).
+- [ ] Sending invoice produces a WhatsApp message payload and US send status (real or simulated).
 - [ ] Reminder schedule is created with at least these default cadences:
   - [ ] immediately on invoice issue
   - [ ] 3 days before due date
@@ -149,7 +149,7 @@ Out of scope for the demo (avoid live-demo chaos):
 - **Risk**: Payment link + messaging in a live demo can cause accidental real-world sends/charges if not gated.
 - **Open question**: What is the minimum “human review” step in the demo for ambiguous terms?
 - **Open question**: Which contract patterns do we explicitly support for the demo (one template vs multiple)?
-- **Open question**: Do we simulate Ozow + UnifiedSend, or integrate real sandboxes?
+- **Open question**: Do we simulate Ozow + US, or integrate real sandboxes?
 
 ## Analytics / Observability
 
@@ -178,7 +178,7 @@ Out of scope for the demo (avoid live-demo chaos):
 - LLM provider access via `OPEN_API_KEY`
 - PDF text extraction library/service
 - Ozow payment link generation (sandbox or mocked)
-- UnifiedSend WhatsApp messaging (sandbox or mocked)
+- WhatsApp messaging (sandbox or mocked)
 
 ## References
 
