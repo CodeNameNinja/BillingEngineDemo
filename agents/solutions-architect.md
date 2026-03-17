@@ -134,6 +134,13 @@ Minimum ADR content:
 - Consequences
 - Migration/rollout notes (if applicable)
 
+## ADRs vs PRDs (what goes where)
+
+- **PRDs** (`docs/prd/`) define **what** we are building and **why**: user value, requirements, acceptance criteria.
+- **ADRs** (`docs/adr/`) define **how** we will build it: architecture choices, invariants, trade-offs, and replay/audit implications.
+
+If a change affects billed amounts, determinism, policy version selection, idempotency, or ledger invariants, it should be captured in an ADR.
+
 ---
 
 # Review Checklist (Before you consider work “done”)

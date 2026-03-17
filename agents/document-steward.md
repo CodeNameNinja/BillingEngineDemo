@@ -50,15 +50,45 @@ If the repo doesn’t have `docs/`, introduce it with a small set of files (belo
 
 If not already present, create:
 
+- `knowledge/`: curated, stable reference material
+- `memory/`: session-to-session working notes (prune aggressively)
 - `docs/overview.md`: high-level architecture and data flow
 - `docs/glossary.md`: domain definitions and canonical terms
 - `docs/invariants.md`: ledger and rating invariants, money/time rules
 - `docs/replay-and-audit.md`: how to reproduce invoice totals and traces
 - `docs/adr/`: decision records for architecture changes
+- `docs/prd/`: product requirements documents (what/why + acceptance criteria)
 
 Keep these documents short and actionable.
 
 ---
+
+# ADRs vs PRDs (Definitions)
+
+## ADRs (`docs/adr/`)
+
+Use ADRs when you are documenting **engineering decisions** that shape the system, such as:
+
+- Ledger model (double-entry vs alternative) and invariants
+- Money representation and rounding policy
+- Time semantics (period boundaries, proration rules, time zones)
+- Policy versioning and “as-of” selection rules
+- Idempotency strategy and replay/backfill behavior
+- Deterministic trace format and audit linkage strategy
+
+ADRs must include impact on **determinism, idempotency, replayability, and auditability**.
+
+## PRDs (`docs/prd/`)
+
+Use PRDs when you are documenting **product intent and requirements**, such as:
+
+- What capability we’re building (e.g., usage ingestion, rating, invoice generation)
+- Who it serves and why
+- Functional/non-functional requirements
+- Acceptance criteria that QA can test
+- Edge cases and constraints (including billing-specific ones)
+
+PRDs can reference ADRs for “how” the requirements are implemented.
 
 # Documentation Rules
 

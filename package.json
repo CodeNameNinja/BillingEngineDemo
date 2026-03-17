@@ -1,13 +1,21 @@
 {
-  "name": "Demo",
+  "name": "demo-billing-engine",
   "version": "1.0.0",
-  "description": "",
-  "main": "dist/index.js",
+  "description": "AI-native Billing Engine demo monorepo",
   "scripts": {
-    "build": "tsc"
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev -w apps/web\" \"npm run dev -w apps/api\"",
+    "build": "npm run build -ws",
+    "typecheck": "npm run typecheck -ws",
+    "test": "npm run test -ws --if-present",
+    "validate": "npm run typecheck && npm run test && npm run build"
   },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "dependencies": {},
   "devDependencies": {
+    "concurrently": "^9.2.0",
     "typescript": "^5.5.3"
   },
   "private": true
