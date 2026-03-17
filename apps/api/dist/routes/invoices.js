@@ -8,6 +8,8 @@ import { normalizeExtractedTerms } from '../billing/normalize.js';
 import { generateInvoice } from '../billing/invoice.js';
 import { buildDefaultReminderSchedule } from '../billing/reminders.js';
 import { buildMonthlyRevRecSchedule } from '../billing/revrec.js';
+const CHANNEL360_ORG_ID = '639700347749ed00181de224';
+const CHANNEL360_ENDPOINT = `https://www.channel360.co.za/v1.1/org/${CHANNEL360_ORG_ID}/notification`;
 export const invoicesRouter = express.Router();
 invoicesRouter.post('/generate', express.json({ limit: '2mb' }), async (req, res) => {
     const idemKey = req.header('Idempotency-Key');
@@ -160,11 +162,37 @@ invoicesRouter.post('/generate', express.json({ limit: '2mb' }), async (req, res
 });
 invoicesRouter.post('/:invoiceId/send-whatsapp', express.json(), async (req, res) => {
     const { messagePayload } = req.body;
-    // MVP: mocked send — validate shape lightly.
     if (!messagePayload || typeof messagePayload !== 'object') {
         return res.status(400).json({ ok: false, error: 'Missing messagePayload' });
     }
-    res.json({ ok: true, status: 'mock_sent', at: nowIsoUtc() });
+    const token = process.env.WA_API_KEY;
+    if (!token) {
+        return res.status(500).json({ ok: false, error: 'Missing WA_API_KEY for WhatsApp send' });
+    }
+    try {
+        const r = await fetch(CHANNEL360_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify(messagePayload)
+        });
+        const text = await r.text();
+        let json = null;
+        try {
+            json = JSON.parse(text);
+        }
+        catch {
+            json = { raw: text };
+        }
+        if (!r.ok)
+            return res.status(502).json({ ok: false, error: 'WhatsApp send failed', status: r.status, response: json });
+        res.json({ ok: true, status: 'accepted', at: nowIsoUtc(), response: json });
+    }
+    catch (e) {
+        res.status(502).json({ ok: false, error: 'WhatsApp send failed', detail: e instanceof Error ? e.message : String(e) });
+    }
 });
 invoicesRouter.post('/:invoiceId/reminders', express.json(), async (req, res) => {
     const { issuedAt, dueAt } = req.body;

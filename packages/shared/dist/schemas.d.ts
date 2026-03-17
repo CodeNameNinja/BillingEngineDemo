@@ -1,5 +1,5 @@
 import { z } from 'zod';
-export declare const CurrencyCodeSchema: z.ZodEnum<["USD", "EUR", "GBP"]>;
+export declare const CurrencyCodeSchema: z.ZodEnum<["USD", "EUR", "GBP", "ZAR"]>;
 export declare const ExtractedBillingTermsSchema: z.ZodObject<{
     customerName: z.ZodOptional<z.ZodString>;
     contractStartDate: z.ZodOptional<z.ZodString>;
@@ -7,7 +7,7 @@ export declare const ExtractedBillingTermsSchema: z.ZodObject<{
     termLengthMonths: z.ZodOptional<z.ZodNumber>;
     invoiceFrequency: z.ZodOptional<z.ZodEnum<["monthly", "quarterly", "annual", "one_time", "unknown"]>>;
     billingModel: z.ZodOptional<z.ZodEnum<["fixed", "recurring", "usage", "mixed", "unknown"]>>;
-    currency: z.ZodOptional<z.ZodEnum<["USD", "EUR", "GBP"]>>;
+    currency: z.ZodOptional<z.ZodEnum<["USD", "EUR", "GBP", "ZAR"]>>;
     paymentTerms: z.ZodOptional<z.ZodString>;
     dueDateRule: z.ZodOptional<z.ZodString>;
     lineItems: z.ZodOptional<z.ZodArray<z.ZodObject<{
@@ -66,7 +66,7 @@ export declare const ExtractedBillingTermsSchema: z.ZodObject<{
     termLengthMonths?: number | undefined;
     invoiceFrequency?: "monthly" | "quarterly" | "annual" | "one_time" | "unknown" | undefined;
     billingModel?: "unknown" | "fixed" | "recurring" | "usage" | "mixed" | undefined;
-    currency?: "USD" | "EUR" | "GBP" | undefined;
+    currency?: "USD" | "EUR" | "GBP" | "ZAR" | undefined;
     paymentTerms?: string | undefined;
     dueDateRule?: string | undefined;
     lineItems?: {
@@ -95,7 +95,7 @@ export declare const ExtractedBillingTermsSchema: z.ZodObject<{
     termLengthMonths?: number | undefined;
     invoiceFrequency?: "monthly" | "quarterly" | "annual" | "one_time" | "unknown" | undefined;
     billingModel?: "unknown" | "fixed" | "recurring" | "usage" | "mixed" | undefined;
-    currency?: "USD" | "EUR" | "GBP" | undefined;
+    currency?: "USD" | "EUR" | "GBP" | "ZAR" | undefined;
     paymentTerms?: string | undefined;
     dueDateRule?: string | undefined;
     lineItems?: {
@@ -127,7 +127,7 @@ export declare const NormalizedBillingModelSchema: z.ZodObject<{
     }, {
         name: string;
     }>;
-    currency: z.ZodEnum<["USD", "EUR", "GBP"]>;
+    currency: z.ZodEnum<["USD", "EUR", "GBP", "ZAR"]>;
     contract: z.ZodObject<{
         startDate: z.ZodString;
         endDate: z.ZodOptional<z.ZodString>;
@@ -143,12 +143,12 @@ export declare const NormalizedBillingModelSchema: z.ZodObject<{
     }>;
     invoice: z.ZodObject<{
         frequency: z.ZodEnum<["monthly", "quarterly", "annual", "one_time"]>;
-        dueDateRule: z.ZodEnum<["net_0", "net_7", "net_14", "net_30", "unknown"]>;
+        dueDateRule: z.ZodEnum<["net_0", "net_7", "net_14", "net_15", "net_30", "unknown"]>;
     }, "strip", z.ZodTypeAny, {
-        dueDateRule: "unknown" | "net_0" | "net_7" | "net_14" | "net_30";
+        dueDateRule: "unknown" | "net_0" | "net_7" | "net_14" | "net_15" | "net_30";
         frequency: "monthly" | "quarterly" | "annual" | "one_time";
     }, {
-        dueDateRule: "unknown" | "net_0" | "net_7" | "net_14" | "net_30";
+        dueDateRule: "unknown" | "net_0" | "net_7" | "net_14" | "net_15" | "net_30";
         frequency: "monthly" | "quarterly" | "annual" | "one_time";
     }>;
     charges: z.ZodArray<z.ZodDiscriminatedUnion<"kind", [z.ZodObject<{
@@ -205,7 +205,7 @@ export declare const NormalizedBillingModelSchema: z.ZodObject<{
         whatsappPhoneE164?: string | undefined;
     }>;
 }, "strict", z.ZodTypeAny, {
-    currency: "USD" | "EUR" | "GBP";
+    currency: "USD" | "EUR" | "GBP" | "ZAR";
     version: 1;
     customer: {
         name: string;
@@ -216,7 +216,7 @@ export declare const NormalizedBillingModelSchema: z.ZodObject<{
         endDate?: string | undefined;
     };
     invoice: {
-        dueDateRule: "unknown" | "net_0" | "net_7" | "net_14" | "net_30";
+        dueDateRule: "unknown" | "net_0" | "net_7" | "net_14" | "net_15" | "net_30";
         frequency: "monthly" | "quarterly" | "annual" | "one_time";
     };
     charges: ({
@@ -239,7 +239,7 @@ export declare const NormalizedBillingModelSchema: z.ZodObject<{
         whatsappPhoneE164?: string | undefined;
     };
 }, {
-    currency: "USD" | "EUR" | "GBP";
+    currency: "USD" | "EUR" | "GBP" | "ZAR";
     version: 1;
     customer: {
         name: string;
@@ -250,7 +250,7 @@ export declare const NormalizedBillingModelSchema: z.ZodObject<{
         endDate?: string | undefined;
     };
     invoice: {
-        dueDateRule: "unknown" | "net_0" | "net_7" | "net_14" | "net_30";
+        dueDateRule: "unknown" | "net_0" | "net_7" | "net_14" | "net_15" | "net_30";
         frequency: "monthly" | "quarterly" | "annual" | "one_time";
     };
     charges: ({

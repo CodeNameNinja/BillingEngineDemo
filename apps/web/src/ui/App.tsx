@@ -1,4 +1,21 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Container,
+  Divider,
+  Link,
+  Paper,
+  Stack,
+  Typography
+} from '@mui/material';
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
+import AutoFixHighRoundedIcon from '@mui/icons-material/AutoFixHighRounded';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
+import HourglassTopRoundedIcon from '@mui/icons-material/HourglassTopRounded';
 
 type UploadResult = {
   runId: string;
@@ -26,6 +43,7 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [whatsAppStatus, setWhatsAppStatus] = useState<string | null>(null);
 
   const [upload, setUpload] = useState<UploadResult | null>(null);
   const [terms, setTerms] = useState<ExtractTermsResult | null>(null);
@@ -37,246 +55,412 @@ export function App() {
   }, [upload?.runId, terms?.runId, invoice?.runId]);
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Contract-to-Cash Demo</h1>
-          <div style={{ color: '#555', marginTop: 6 }}>
-            Upload → extract terms (mock) → generate invoice (deterministic) → collections artifacts
-          </div>
-        </div>
-        <div style={{ alignSelf: 'flex-end', display: 'flex', gap: 8 }}>
-          <a href="/api/status" target="_blank" rel="noreferrer">
-            API status
-          </a>
-          <a href="/healthz" target="_blank" rel="noreferrer">
-            healthz
-          </a>
-        </div>
-      </header>
-
-      <section style={cardStyle}>
-        <h2 style={h2Style}>1) Upload contract PDF</h2>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            disabled={busy}
-          />
-          <button
-            disabled={busy || !file}
-            onClick={async () => {
-              setBusy(true);
-              setError(null);
-              try {
-                const fd = new FormData();
-                fd.append('file', file!);
-                const r = await fetch('/api/contracts', { method: 'POST', body: fd });
-                const j = await r.json();
-                if (!r.ok || !j.ok) throw new Error(j.error ?? 'Upload failed');
-                setUpload({ runId: j.runId, contractId: j.contractId, extractedText: j.extractedText });
-                setTerms(null);
-                setInvoice(null);
-              } catch (e) {
-                setError(e instanceof Error ? e.message : 'Upload failed');
-              } finally {
-                setBusy(false);
-              }
-            }}
+    <Box sx={{ py: { xs: 3, sm: 5 } }}>
+      <Container maxWidth="lg">
+        <Stack spacing={2.5}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+            justifyContent="space-between"
           >
-            Upload
-          </button>
-        </div>
-        {upload ? (
-          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <KeyValue label="contractId" value={upload.contractId} />
-            <KeyValue label="runId" value={upload.runId} />
-            <div style={{ gridColumn: '1 / -1' }}>
-              <div style={labelStyle}>extractedText</div>
-              <pre style={preStyle}>{upload.extractedText}</pre>
-            </div>
-          </div>
-        ) : (
-          <div style={{ marginTop: 10, color: '#555' }}>Upload a dummy PDF to start.</div>
-        )}
-      </section>
+            <Stack spacing={0.75}>
+              <Typography variant="h4">Contract-to-Cash Demo</Typography>
+              <Typography variant="subtitle1">
+                Upload → extract terms (OpenAI) → generate invoice (deterministic) → collections artifacts
+              </Typography>
+            </Stack>
 
-      <section style={cardStyle}>
-        <h2 style={h2Style}>2) Extract billing terms (mocked)</h2>
-        <button
-          disabled={busy || !upload}
-          onClick={async () => {
-            setBusy(true);
-            setError(null);
-            try {
-              const r = await fetch(`/api/contracts/${encodeURIComponent(upload!.contractId)}/extract-terms`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: upload!.extractedText })
-              });
-              const j = await r.json();
-              if (!r.ok || !j.ok) throw new Error(j.error ?? 'Extraction failed');
-              setTerms({ runId: j.runId, extractedTerms: j.extractedTerms, warnings: j.warnings ?? [] });
-              setInvoice(null);
-            } catch (e) {
-              setError(e instanceof Error ? e.message : 'Extraction failed');
-            } finally {
-              setBusy(false);
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Link href="/api/status" target="_blank" rel="noreferrer" sx={{ display: 'inline-flex', gap: 0.75 }}>
+                API status <OpenInNewRoundedIcon fontSize="inherit" />
+              </Link>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5, display: { xs: 'none', sm: 'block' } }} />
+              <Link href="/healthz" target="_blank" rel="noreferrer" sx={{ display: 'inline-flex', gap: 0.75 }}>
+                healthz <OpenInNewRoundedIcon fontSize="inherit" />
+              </Link>
+            </Stack>
+          </Stack>
+
+          {error ? <Alert severity="error">{error}</Alert> : null}
+
+          <SectionCard
+            title="1) Upload contract PDF"
+            status={upload ? <Chip size="small" color="success" label="Uploaded" /> : <Chip size="small" label="Pending" />}
+            action={
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                <Button component="label" variant="outlined" disabled={busy} startIcon={<UploadFileRoundedIcon />}>
+                  Choose PDF
+                  <input
+                    hidden
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  />
+                </Button>
+                <Button
+                  variant="contained"
+                  disabled={busy || !file}
+                  startIcon={busy ? <HourglassTopRoundedIcon /> : <UploadFileRoundedIcon />}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError(null);
+                    try {
+                      const fd = new FormData();
+                      fd.append('file', file!);
+                      const r = await fetch('/api/contracts', { method: 'POST', body: fd });
+                      const j = await r.json();
+                      if (!r.ok || !j.ok) throw new Error(j.error ?? 'Upload failed');
+                      setUpload({ runId: j.runId, contractId: j.contractId, extractedText: j.extractedText });
+                      setTerms(null);
+                      setInvoice(null);
+                      setWhatsAppStatus(null);
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : 'Upload failed');
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Upload
+                </Button>
+              </Stack>
             }
-          }}
-        >
-          Extract terms
-        </button>
+          >
+            <Stack spacing={1.25}>
+              <Typography variant="body2">
+                {file ? (
+                  <>
+                    Selected: <Typography component="span" sx={{ fontWeight: 650 }}>{file.name}</Typography>
+                  </>
+                ) : (
+                  'Choose a dummy PDF to start.'
+                )}
+              </Typography>
 
-        {terms ? (
-          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <KeyValue label="runId" value={terms.runId} />
-            <div />
-            <div>
-              <div style={labelStyle}>extractedTerms (JSON)</div>
-              <pre style={preStyle}>{JSON.stringify(terms.extractedTerms, null, 2)}</pre>
-            </div>
-            <div>
-              <div style={labelStyle}>warnings</div>
-              <pre style={preStyle}>{JSON.stringify(terms.warnings, null, 2)}</pre>
-            </div>
-          </div>
-        ) : (
-          <div style={{ marginTop: 10, color: '#555' }}>Run extraction after upload.</div>
-        )}
-      </section>
+              {upload ? (
+                <Stack spacing={1.25}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                    <KeyValue label="contractId" value={upload.contractId} />
+                    <KeyValue label="runId" value={upload.runId} />
+                  </Stack>
+                  <CodeBlock label="extractedText">{upload.extractedText}</CodeBlock>
+                </Stack>
+              ) : null}
+            </Stack>
+          </SectionCard>
 
-      <section style={cardStyle}>
-        <h2 style={h2Style}>3) Generate invoice + artifacts</h2>
-        <button
-          disabled={busy || !upload || !terms}
-          onClick={async () => {
-            setBusy(true);
-            setError(null);
-            try {
-              const r = await fetch('/api/invoices/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `demo-${upload!.contractId}` },
-                body: JSON.stringify({ contractId: upload!.contractId, extractedTerms: terms!.extractedTerms })
-              });
-              const j = await r.json();
-              if (!r.ok || !j.ok) throw new Error(j.error ?? 'Invoice generation failed');
-              setInvoice({
-                runId: j.runId,
-                invoice: j.invoice,
-                invoiceHtml: j.invoiceHtml,
-                paymentLink: j.paymentLink,
-                whatsappPayload: j.whatsappPayload,
-                reminders: j.reminders,
-                revrec: j.revrec
-              });
-            } catch (e) {
-              setError(e instanceof Error ? e.message : 'Invoice generation failed');
-            } finally {
-              setBusy(false);
+          <SectionCard
+            title="2) Extract billing terms (OpenAI)"
+            status={
+              terms ? (
+                <Chip size="small" color="success" label="Extracted" />
+              ) : upload ? (
+                <Chip size="small" color="info" label="Ready" />
+              ) : (
+                <Chip size="small" label="Blocked" />
+              )
             }
-          }}
-        >
-          Generate invoice
-        </button>
+            action={
+              <Button
+                variant="contained"
+                disabled={busy || !upload}
+                startIcon={busy ? <HourglassTopRoundedIcon /> : <AutoFixHighRoundedIcon />}
+                onClick={async () => {
+                  setBusy(true);
+                  setError(null);
+                  try {
+                    const r = await fetch(`/api/contracts/${encodeURIComponent(upload!.contractId)}/extract-terms`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ text: upload!.extractedText })
+                    });
+                    const j = await r.json();
+                    if (!r.ok || !j.ok) throw new Error(j.error ?? 'Extraction failed');
+                    setTerms({ runId: j.runId, extractedTerms: j.extractedTerms, warnings: j.warnings ?? [] });
+                    setInvoice(null);
+                    setWhatsAppStatus(null);
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : 'Extraction failed');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Extract terms
+              </Button>
+            }
+          >
+            {terms ? (
+              <Stack spacing={1.25}>
+                <KeyValue label="runId" value={terms.runId} />
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <CodeBlock label="extractedTerms (JSON)">{JSON.stringify(terms.extractedTerms, null, 2)}</CodeBlock>
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <CodeBlock label="warnings">{JSON.stringify(terms.warnings, null, 2)}</CodeBlock>
+                  </Box>
+                </Stack>
+              </Stack>
+            ) : (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Run extraction after upload.
+              </Typography>
+            )}
+          </SectionCard>
 
-        {invoice ? (
-          <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <KeyValue label="runId" value={invoice.runId} />
-            <div />
-            <div>
-              <div style={labelStyle}>invoice (JSON)</div>
-              <pre style={preStyle}>{JSON.stringify(invoice.invoice, null, 2)}</pre>
-            </div>
-            <div>
-              <div style={labelStyle}>collections (WhatsApp payload)</div>
-              <pre style={preStyle}>{JSON.stringify(invoice.whatsappPayload, null, 2)}</pre>
-              <div style={{ marginTop: 10 }}>
-                <div style={labelStyle}>reminders</div>
-                <pre style={preStyle}>{JSON.stringify(invoice.reminders, null, 2)}</pre>
-              </div>
-              <div style={{ marginTop: 10 }}>
-                <div style={labelStyle}>rev rec</div>
-                <pre style={preStyle}>{JSON.stringify(invoice.revrec, null, 2)}</pre>
-              </div>
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <div style={labelStyle}>invoice preview (HTML)</div>
-              <iframe
-                title="invoice-preview"
-                style={{ width: '100%', height: 420, border: '1px solid #e5e7eb', borderRadius: 8 }}
-                srcDoc={invoice.invoiceHtml}
-              />
-            </div>
-          </div>
-        ) : (
-          <div style={{ marginTop: 10, color: '#555' }}>
-            This step also writes inspectable artifacts under <code>artifacts/</code>.
-          </div>
-        )}
-      </section>
+          <SectionCard
+            title="3) Generate invoice + artifacts"
+            status={
+              invoice ? (
+                <Chip size="small" color="success" label="Generated" />
+              ) : upload && terms ? (
+                <Chip size="small" color="info" label="Ready" />
+              ) : (
+                <Chip size="small" label="Blocked" />
+              )
+            }
+            action={
+              <Button
+                variant="contained"
+                disabled={busy || !upload || !terms}
+                startIcon={busy ? <HourglassTopRoundedIcon /> : <ReceiptLongRoundedIcon />}
+                onClick={async () => {
+                  setBusy(true);
+                  setError(null);
+                  try {
+                    const r = await fetch('/api/invoices/generate', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `demo-${upload!.contractId}` },
+                      body: JSON.stringify({ contractId: upload!.contractId, extractedTerms: terms!.extractedTerms })
+                    });
+                    const j = await r.json();
+                    if (!r.ok || !j.ok) throw new Error(j.error ?? 'Invoice generation failed');
+                    setInvoice({
+                      runId: j.runId,
+                      invoice: j.invoice,
+                      invoiceHtml: j.invoiceHtml,
+                      paymentLink: j.paymentLink,
+                      whatsappPayload: j.whatsappPayload,
+                      reminders: j.reminders,
+                      revrec: j.revrec
+                    });
+                    setWhatsAppStatus(null);
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : 'Invoice generation failed');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Generate invoice
+              </Button>
+            }
+          >
+            {invoice ? (
+              <Stack spacing={1.25}>
+                <KeyValue label="runId" value={invoice.runId} />
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    disabled={busy || !invoice?.whatsappPayload}
+                    onClick={async () => {
+                      setBusy(true);
+                      setError(null);
+                      setWhatsAppStatus(null);
+                      try {
+                        const invoiceId = (invoice.invoice as any)?.id as string | undefined;
+                        if (!invoiceId) throw new Error('Missing invoice.id');
+                        const r = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}/send-whatsapp`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ messagePayload: invoice.whatsappPayload })
+                        });
+                        const j = await r.json();
+                        if (!r.ok || !j.ok) throw new Error(j.error ?? 'WhatsApp send failed');
+                        setWhatsAppStatus('Sent (accepted)');
+                      } catch (e) {
+                        setError(e instanceof Error ? e.message : 'WhatsApp send failed');
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    Send via WhatsApp
+                  </Button>
+                  {whatsAppStatus ? <Chip size="small" color="success" label={whatsAppStatus} /> : null}
+                </Stack>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <CodeBlock label="invoice (JSON)">{JSON.stringify(invoice.invoice, null, 2)}</CodeBlock>
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Stack spacing={1.25}>
+                      <CodeBlock label="collections (WhatsApp payload)">
+                        {JSON.stringify(invoice.whatsappPayload, null, 2)}
+                      </CodeBlock>
+                      <CodeBlock label="reminders">{JSON.stringify(invoice.reminders, null, 2)}</CodeBlock>
+                      <CodeBlock label="rev rec">{JSON.stringify(invoice.revrec, null, 2)}</CodeBlock>
+                    </Stack>
+                  </Box>
+                </Stack>
 
-      <section style={cardStyle}>
-        <h2 style={h2Style}>Artifacts</h2>
-        <div style={{ color: '#555' }}>
-          Run IDs: {allRunIds.length ? allRunIds.map((x) => <code key={x} style={{ marginRight: 8 }}>{x}</code>) : '—'}
-        </div>
-        <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          {allRunIds.map((runId) => (
-            <a key={runId} href={`/api/artifacts/${encodeURIComponent(runId)}`} target="_blank" rel="noreferrer">
-              index.json for {runId}
-            </a>
-          ))}
-        </div>
-      </section>
+                <Stack spacing={0.75}>
+                  <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+                    invoice preview (HTML)
+                  </Typography>
+                  <Box
+                    component="iframe"
+                    title="invoice-preview"
+                    sx={{
+                      width: '100%',
+                      height: 460,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      bgcolor: 'background.paper'
+                    }}
+                    srcDoc={invoice.invoiceHtml}
+                  />
+                </Stack>
+              </Stack>
+            ) : (
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                This step also writes inspectable artifacts under <Box component="code">artifacts/</Box>.
+              </Typography>
+            )}
+          </SectionCard>
 
-      {error ? (
-        <section style={{ ...cardStyle, borderColor: '#fecaca', background: '#fff1f2' }}>
-          <strong>Error:</strong> {error}
-        </section>
-      ) : null}
-    </div>
+          <SectionCard
+            title="Artifacts"
+            status={
+              allRunIds.length ? <Chip size="small" label={`${allRunIds.length} run${allRunIds.length === 1 ? '' : 's'}`} /> : null
+            }
+          >
+            <Stack spacing={1.25}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Run IDs:{' '}
+                {allRunIds.length ? (
+                  allRunIds.map((x) => (
+                    <Chip
+                      key={x}
+                      size="small"
+                      label={x}
+                      sx={{ mr: 1, mb: 0.75, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}
+                    />
+                  ))
+                ) : (
+                  '—'
+                )}
+              </Typography>
+
+              {allRunIds.length ? (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap" useFlexGap>
+                  {allRunIds.map((runId) => (
+                    <Button
+                      key={runId}
+                      component="a"
+                      href={`/api/artifacts/${encodeURIComponent(runId)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      variant="outlined"
+                      endIcon={<OpenInNewRoundedIcon />}
+                      sx={{ justifyContent: 'space-between' }}
+                    >
+                      index.json for {runId}
+                    </Button>
+                  ))}
+                </Stack>
+              ) : null}
+            </Stack>
+          </SectionCard>
+        </Stack>
+      </Container>
+    </Box>
   );
 }
 
 function KeyValue(props: { label: string; value: string }) {
   return (
-    <div>
-      <div style={labelStyle}>{props.label}</div>
-      <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
+    <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.1 }}>
+        {props.label}
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          overflowWrap: 'anywhere'
+        }}
+      >
         {props.value}
-      </div>
-    </div>
+      </Typography>
+    </Stack>
   );
 }
 
-const cardStyle: React.CSSProperties = {
-  marginTop: 16,
-  border: '1px solid #e5e7eb',
-  borderRadius: 12,
-  padding: 16,
-  background: '#fff'
-};
+function CodeBlock(props: { label: string; children: string }) {
+  return (
+    <Stack spacing={0.75}>
+      <Typography variant="overline" sx={{ color: 'text.secondary', lineHeight: 1.1 }}>
+        {props.label}
+      </Typography>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 1.5,
+          borderRadius: 2,
+          bgcolor: 'rgba(255,255,255,0.70)'
+        }}
+      >
+        <Box
+          component="pre"
+          sx={{
+            m: 0,
+            fontSize: 12.5,
+            lineHeight: 1.5,
+            maxHeight: 300,
+            overflow: 'auto',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+          }}
+        >
+          {props.children}
+        </Box>
+      </Paper>
+    </Stack>
+  );
+}
 
-const h2Style: React.CSSProperties = {
-  margin: '0 0 10px 0',
-  fontSize: 18
-};
+function SectionCard(props: {
+  title: string;
+  status?: ReactNode;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Paper sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 3 }}>
+      <Stack spacing={1.5}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1.25}
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          justifyContent="space-between"
+        >
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+            <Typography variant="h6" sx={{ minWidth: 0 }}>
+              {props.title}
+            </Typography>
+            {props.status ? <Box sx={{ flexShrink: 0 }}>{props.status}</Box> : null}
+          </Stack>
+          {props.action ? <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>{props.action}</Box> : null}
+        </Stack>
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: '#6b7280',
-  marginBottom: 6
-};
+        <Divider />
 
-const preStyle: React.CSSProperties = {
-  margin: 0,
-  padding: 12,
-  borderRadius: 8,
-  border: '1px solid #e5e7eb',
-  background: '#fafafa',
-  maxHeight: 280,
-  overflow: 'auto'
-};
+        <Box sx={{ minWidth: 0 }}>{props.children}</Box>
+      </Stack>
+    </Paper>
+  );
+}
 

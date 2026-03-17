@@ -1,5 +1,5 @@
 import { z } from 'zod';
-export const CurrencyCodeSchema = z.enum(['USD', 'EUR', 'GBP']);
+export const CurrencyCodeSchema = z.enum(['USD', 'EUR', 'GBP', 'ZAR']);
 export const ExtractedBillingTermsSchema = z
     .object({
     customerName: z.string().min(1).optional(),
@@ -54,7 +54,7 @@ export const NormalizedBillingModelSchema = z
     }),
     invoice: z.object({
         frequency: z.enum(['monthly', 'quarterly', 'annual', 'one_time']),
-        dueDateRule: z.enum(['net_0', 'net_7', 'net_14', 'net_30', 'unknown'])
+        dueDateRule: z.enum(['net_0', 'net_7', 'net_14', 'net_15', 'net_30', 'unknown'])
     }),
     charges: z.array(z.discriminatedUnion('kind', [
         z.object({

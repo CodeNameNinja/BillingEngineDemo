@@ -1,31 +1,98 @@
-export async function extractBillingTermsFromText(_text) {
-    // MVP: deterministic mock extraction for a single known contract template.
-    // The LLM boundary is implemented here so we can swap to real calls later while preserving traces.
-    const extractedTerms = {
-        customerName: 'Demo Customer',
-        contractStartDate: '2026-01-01',
-        termLengthMonths: 12,
-        invoiceFrequency: 'annual',
-        billingModel: 'recurring',
-        currency: 'USD',
-        paymentTerms: 'Net 30',
-        dueDateRule: 'net_30',
-        lineItems: [
-            {
-                description: 'Annual subscription',
-                recurringFeeMinor: 120000,
-                cadence: 'annual'
+import OpenAI from 'openai';
+import { ExtractedBillingTermsSchema } from '@demo/shared';
+export async function extractBillingTermsFromText(text) {
+    const apiKey = process.env.OPEN_API_KEY ?? process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        return {
+            extractedTerms: {},
+            warnings: [{ code: 'parse_error', message: 'Missing OPEN_API_KEY/OPENAI_API_KEY for LLM extraction' }],
+            mode: 'openai'
+        };
+    }
+    const client = new OpenAI({ apiKey });
+    const model = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';
+    const system = [
+        'You are extracting billing terms from contract text.',
+        'Return STRICT JSON only (no markdown, no commentary).',
+        'If a field is unknown, omit it and add a warning in an array called "_warnings" with objects {code,message,path?}.',
+        'Never invent numbers or dates.'
+    ].join(' ');
+    const user = `Extract billing terms from this contract text:\n\n${text}\n\nReturn JSON with fields:\n- customerName\n- contractStartDate (YYYY-MM-DD)\n- contractEndDate (YYYY-MM-DD) OR termLengthMonths\n- invoiceFrequency (monthly|quarterly|annual|one_time|unknown)\n- billingModel (fixed|recurring|usage|mixed|unknown)\n- currency (USD|EUR|GBP)\n- paymentTerms\n- dueDateRule (net_0|net_7|net_14|net_30 or free text)\n- lineItems[] (description, fixedFeeMinor, recurringFeeMinor, cadence)\n- variableUsageRules[] (meter, unit, pricePerUnitMinor)\n- latePaymentPenalty\n- contactChannel (whatsappPhoneE164, email)\n\nAlso include optional _warnings[].`;
+    const resp = await client.responses.create({
+        model,
+        input: [
+            { role: 'system', content: system },
+            { role: 'user', content: user }
+        ]
+    });
+    const rawText = resp.output_text?.trim() ?? '';
+    const { json, parseWarnings } = extractJsonObject(rawText);
+    if (!json) {
+        return {
+            extractedTerms: {},
+            warnings: [
+                ...parseWarnings,
+                {
+                    code: 'parse_error',
+                    message: 'LLM did not return valid JSON'
+                }
+            ],
+            mode: 'openai'
+        };
+    }
+    const modelWarnings = [];
+    const llmWarnings = Array.isArray(json._warnings) ? json._warnings : [];
+    for (const w of llmWarnings) {
+        if (w && typeof w === 'object' && typeof w.message === 'string') {
+            modelWarnings.push({
+                code: w.code ?? 'ambiguous_term',
+                message: w.message,
+                path: typeof w.path === 'string' ? w.path : undefined
+            });
+        }
+    }
+    delete json._warnings;
+    const parsed = ExtractedBillingTermsSchema.safeParse(json);
+    if (!parsed.success) {
+        return {
+            extractedTerms: {},
+            warnings: [
+                ...parseWarnings,
+                ...modelWarnings,
+                {
+                    code: 'parse_error',
+                    message: 'Extracted terms failed schema validation',
+                    path: 'ExtractedBillingTerms'
+                }
+            ],
+            mode: 'openai'
+        };
+    }
+    return { extractedTerms: parsed.data, warnings: [...parseWarnings, ...modelWarnings], mode: 'openai' };
+}
+function extractJsonObject(text) {
+    const parseWarnings = [];
+    try {
+        return { json: JSON.parse(text), parseWarnings };
+    }
+    catch {
+        // Try to salvage the first top-level JSON object.
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            const candidate = text.slice(start, end + 1);
+            try {
+                return { json: JSON.parse(candidate), parseWarnings };
             }
-        ],
-        contactChannel: {
-            whatsappPhoneE164: '+15555550100'
+            catch {
+                parseWarnings.push({
+                    code: 'parse_error',
+                    message: 'Failed to parse JSON from LLM output (even after salvage attempt)'
+                });
+                return { json: null, parseWarnings };
+            }
         }
-    };
-    const warnings = [
-        {
-            code: 'unsupported_term',
-            message: 'LLM extraction is mocked in this MVP (single template). Replace with real extraction when ready.'
-        }
-    ];
-    return { extractedTerms, warnings, mode: 'mock' };
+        parseWarnings.push({ code: 'parse_error', message: 'LLM output contained no JSON object' });
+        return { json: null, parseWarnings };
+    }
 }

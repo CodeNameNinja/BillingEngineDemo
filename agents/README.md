@@ -17,6 +17,7 @@ This folder contains **role-specific agent guides** for this demo. These files a
 | `solutions-architect.md` | System architecture, domain boundaries, invariants, and non-functional requirements |
 | `quality-assurance.md` | Test strategy, quality gates, coverage expectations, and defect prevention for billing correctness |
 | `document-steward.md` | Documentation standards, decision records, glossary, and keeping docs in sync with code |
+| `frontend-master-stylist.md` | MUI-based design system rules, theming strategy, and UI consistency/a11y checklist |
 
 ## Shared objective
 

@@ -1,5 +1,7 @@
 import { nanoid } from 'nanoid';
 import { addDaysIsoUtc, nowIsoUtc } from '../lib/time.js';
+const OZOW_PAY_LINK = 'https://pay.ozow.com/8a27a62f-2967-4888-88df-8d66a1c67bdd/payment-option/';
+const DEMO_WHATSAPP_DESTINATION_E164 = '+27656225667';
 export function generateInvoice(args) {
     const issuedAt = nowIsoUtc();
     const dueAt = computeDueAt(issuedAt, args.model.invoice.dueDateRule);
@@ -57,20 +59,38 @@ export function generateInvoice(args) {
     };
     const paymentLink = {
         provider: 'ozow',
-        url: `https://pay.ozow.com/demo?invoiceId=${encodeURIComponent(invoiceId)}&runId=${encodeURIComponent(args.runId)}`
+        url: OZOW_PAY_LINK
     };
-    const whatsappPayload = args.model.collections.whatsappPhoneE164
-        ? {
-            to: args.model.collections.whatsappPhoneE164,
-            template: 'invoice_notice',
-            variables: {
-                customerName: invoice.customerName,
-                amountDue: formatMinor(invoice.totalMinor, invoice.currency),
-                dueDate: invoice.dueAt.slice(0, 10),
-                paymentLink: paymentLink.url
+    const whatsappPayload = {
+        destination: DEMO_WHATSAPP_DESTINATION_E164.replace(/^\+/, ''),
+        message: {
+            type: 'template',
+            template: {
+                name: 'ozow_demo_utility',
+                language: { policy: 'deterministic', code: 'en' },
+                components: [
+                    {
+                        type: 'header',
+                        parameters: [
+                            {
+                                type: 'document',
+                                document: { link: 'https://filebin.net/vtljjhrgi3nuak4v/demo_contract.pdf' }
+                            }
+                        ]
+                    },
+                    {
+                        type: 'body',
+                        parameters: [
+                            { type: 'text', text: firstName(invoice.customerName) },
+                            { type: 'text', text: invoice.invoiceNumber },
+                            { type: 'text', text: formatMinor(invoice.totalMinor, invoice.currency) },
+                            { type: 'text', text: invoice.dueAt.slice(0, 10) }
+                        ]
+                    }
+                ]
             }
         }
-        : null;
+    };
     const invoiceHtml = renderInvoiceHtml(invoice, paymentLink);
     return { invoice, invoiceHtml, paymentLink, whatsappPayload };
 }
@@ -81,6 +101,8 @@ function computeDueAt(issuedAtIso, rule) {
         return addDaysIsoUtc(issuedAtIso, 7);
     if (rule === 'net_14')
         return addDaysIsoUtc(issuedAtIso, 14);
+    if (rule === 'net_15')
+        return addDaysIsoUtc(issuedAtIso, 15);
     return addDaysIsoUtc(issuedAtIso, 30);
 }
 function formatMinor(amountMinor, currency) {
@@ -131,7 +153,7 @@ function renderInvoiceHtml(invoice, paymentLink) {
         <div>
           <div>Issued: ${escapeHtml(invoice.issuedAt.slice(0, 10))}</div>
           <div>Due: ${escapeHtml(invoice.dueAt.slice(0, 10))}</div>
-          <div style="margin-top:8px"><a href="${escapeHtml(paymentLink.url)}">Pay via Ozow (mock)</a></div>
+          <div style="margin-top:8px"><a href="${escapeHtml(paymentLink.url)}">Pay via Ozow</a></div>
         </div>
       </div>
       <table>
@@ -167,4 +189,11 @@ function escapeHtml(s) {
             return '&quot;';
         return '&#39;';
     });
+}
+function firstName(full) {
+    const trimmed = full.trim();
+    if (!trimmed)
+        return 'Customer';
+    const [first] = trimmed.split(/\s+/);
+    return first ?? 'Customer';
 }

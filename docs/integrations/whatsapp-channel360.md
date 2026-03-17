@@ -14,7 +14,7 @@ Reference docs: [Channel360 Notifications API](https://docs.channel360.co.za/api
 - **orgId (demo)**: `639700347749ed00181de224`
 - **Auth**: `Authorization: Bearer <token>` where `<token>` is `WA_API_KEY` from `.env`
 - **Template**:
-  - **name**: `ozow_demo_test`
+  - **name**: `ozow_demo_utility`
   - **language**: `en` (policy: `deterministic`)
 
 > Never hardcode `WA_API_KEY` in code, docs, or commits. Read it from environment variables.
@@ -56,7 +56,7 @@ curl -sS -X POST "https://www.channel360.co.za/v1.1/org/${ORG_ID}/notification" 
     "message": {
       "type": "template",
       "template": {
-        "name": "ozow_demo_test",
+        "name": "ozow_demo_utility",
         "language": { "policy": "deterministic", "code": "en" },
         "components": [
           {

@@ -1,4 +1,4 @@
-export type CurrencyCode = 'USD' | 'EUR' | 'GBP';
+export type CurrencyCode = 'USD' | 'EUR' | 'GBP' | 'ZAR';
 
 export type Money = {
   currency: CurrencyCode;
@@ -89,7 +89,7 @@ export type NormalizedBillingModel = {
   };
   invoice: {
     frequency: 'monthly' | 'quarterly' | 'annual' | 'one_time';
-    dueDateRule: 'net_0' | 'net_7' | 'net_14' | 'net_30' | 'unknown';
+    dueDateRule: 'net_0' | 'net_7' | 'net_14' | 'net_15' | 'net_30' | 'unknown';
   };
   charges: Array<
     | {
@@ -141,9 +141,27 @@ export type PaymentLink = {
 };
 
 export type WhatsAppMessagePayload = {
-  to: string;
-  template: string;
-  variables: Record<string, string>;
+  destination: string;
+  message: {
+    type: 'template';
+    template: {
+      name: string;
+      language: { policy: 'deterministic'; code: 'en' };
+      components: Array<
+        | {
+            type: 'header';
+            parameters: Array<{
+              type: 'document';
+              document: { link: string };
+            }>;
+          }
+        | {
+            type: 'body';
+            parameters: Array<{ type: 'text'; text: string }>;
+          }
+      >;
+    };
+  };
 };
 
 export type ReminderSchedule = {

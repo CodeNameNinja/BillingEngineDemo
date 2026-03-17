@@ -136,8 +136,9 @@ function normalizeDueDateRule(input?: string): NormalizedBillingModel['invoice']
   if (s.includes('net 0') || s.includes('net0')) return 'net_0';
   if (s.includes('net 7') || s.includes('net7')) return 'net_7';
   if (s.includes('net 14') || s.includes('net14')) return 'net_14';
+  if (s.includes('net 15') || s.includes('net15')) return 'net_15';
   if (s.includes('net 30') || s.includes('net30')) return 'net_30';
-  if (s === 'net_0' || s === 'net_7' || s === 'net_14' || s === 'net_30') return s as any;
+  if (s === 'net_0' || s === 'net_7' || s === 'net_14' || s === 'net_15' || s === 'net_30') return s as any;
   return 'unknown';
 }
 
