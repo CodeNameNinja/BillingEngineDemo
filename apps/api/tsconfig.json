@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "baseUrl": ".",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "paths": {
+      "@demo/shared": ["../../packages/shared/src/index.ts"]
+    },
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src", "test"]
+}
+
